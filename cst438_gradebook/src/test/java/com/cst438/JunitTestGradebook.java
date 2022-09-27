@@ -297,7 +297,7 @@ public class JunitTestGradebook {
 		// end of mock data
 		
 		// create the DTO (data transfer object) for the assignment to add.  
-		AssignmentListDTO.AssignmentDTO assignmentDTO = new AssignmentListDTO.AssignmentDTO();
+		AssignmentListDTO.AssignmentDTO assignmentDTO = new AssignmentListDTO.AssignmentDTO(0, 0, null, null, null);
 		assignmentDTO.assignmentName = TEST_ASSIGNMENT_NAME;
 		assignmentDTO.dueDate = TEST_DUE_DATE;
 		
