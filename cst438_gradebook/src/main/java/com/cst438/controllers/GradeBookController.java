@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -169,5 +170,101 @@ public class GradeBookController {
 		
 		return assignment;
 	}
+	
+	//add assignment 
+	@PostMapping("/course/{course_id}/addassignment")
+	@Transactional
+	public AssignmentListDTO.AssignmentDTO addAssignment(@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO, 
+			@PathVariable("course_id") Integer course_id) {
+		System.out.println("Gradebook - addAssignment for course " + course_id);		
+		
+		// check that this request contains a valid course
+		Course c = courseRepository.findById(course_id).orElse(null);
+		
+		if (c == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Course not found. "+ course_id );
+		}
+		
+		// check that it is the instructor
+		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+		if (!c.getInstructor().equals(email)) {
+			throw new ResponseStatusException( HttpStatus.UNAUTHORIZED, "Not Authorized. " );
+		}
+		
+		Assignment newAssignment = new Assignment();
+		newAssignment.setName(assignmentDTO.assignmentName); // get the name
+		newAssignment.setDueDate(java.sql.Date.valueOf(assignmentDTO.dueDate)); // get due date 
+		newAssignment.setNeedsGrading(1); // set needs grading to 1 since this it is new assignment and needs grading
+		newAssignment.setCourse(c); // get course
+	
+		Assignment savedAssignment = assignmentRepository.save(newAssignment); // save assignment to database
+		
+		AssignmentListDTO.AssignmentDTO result = createAssignmentDTO(savedAssignment);
+		return result;
+	}
+	
+	// changes the name of an assignment for a course
+	@PutMapping("/course/{course_id}/changeassignment")
+	@Transactional
+	public void updateAssignmentName (@RequestBody AssignmentListDTO.AssignmentDTO assignmentDTO, @PathVariable("course_id") Integer course_id) {
+		System.out.println("Gradebook - updateAssignmentName for course " + course_id);	
+		
+		// check that this request contains a valid course
+		Course c = courseRepository.findById(course_id).orElse(null);
+		if (c == null) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Course not found. "+ course_id );
+		}
+		
+		// check that it is the instructor
+		String email = "dwisneski@csumb.edu";  // user name (should be instructor's email) 
+		if (!c.getInstructor().equals(email)) {
+			throw new ResponseStatusException( HttpStatus.UNAUTHORIZED, "Not Authorized. " );
+		}
+		
+		// check that assignment exists and is in the course
+		Assignment assign = assignmentRepository.findById(assignmentDTO.assignmentId).orElse(null);
+		
+		//check if the assignment is in the course
+		if (assign == null || assign.getCourse().getCourse_id() != course_id) {
+			throw new ResponseStatusException( HttpStatus.BAD_REQUEST, "Assignment not found. "+ course_id );
+		}
+		
+		assign.setName(assignmentDTO.assignmentName); // change assignment name to new name
+		assignmentRepository.save(assign);
+	}
+	
+	// delete assignment
+	@DeleteMapping("/course/{course_id}/deleteassignment/{assignment_id}")
+	@Transactional
+	public void dropAssignment(@PathVariable("course_id") Integer course_id,  @PathVariable("assignment_id") Integer assignment_id) {
+		System.out.println("Gradebook - dropAssignment for course " + course_id);	
+		
+		String email = "dwisneski@csumb.edu"; // user name (should be instructor's email) 
+		
+		//get the assignment we are looking at
+		Assignment assignment = assignmentRepository.findById(assignment_id).orElse(null);
+		
+		// Check if the assignment is in the current course
+		if (assignment!=null && assignment.getCourse().getCourse_id() == course_id) {
+			
+			// check if assignment has a grade
+			if (assignment.getNeedsGrading() == 1) {
+				assignmentRepository.delete(assignment);
+			} else {
+				// else assignment can not be deleted
+				throw  new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannote delete, assignment already has grades. "+ assignment_id);
+			}
+			
+		} else {
+			// can not find assignment -- error
+			throw  new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assignment_id invalid. "+ assignment_id);
+		}
+	}
+
+	private AssignmentListDTO.AssignmentDTO createAssignmentDTO(Assignment a) {
+		return new AssignmentListDTO.AssignmentDTO(a.getId(), a.getCourse().getCourse_id(), 
+				a.getName(), a.getDueDate().toString(), a.getCourse().getTitle());
+	}
+	
 
 }
